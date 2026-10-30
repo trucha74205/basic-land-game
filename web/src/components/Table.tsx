@@ -235,13 +235,13 @@ export function Table() {
 
       <section aria-label="Hand" data-ref={`hand-${me}`} className="flex flex-col gap-4 rounded-2xl border bg-card/90 p-4 shadow-lg backdrop-blur">
         {/* on phones cards of one land type overlap into a group so the hand stays compact */}
-        <div className="flex min-h-[173px] flex-wrap items-end justify-center gap-3 pt-4 max-sm:gap-x-5">
+        <div className="flex min-h-[173px] flex-wrap items-end justify-center gap-5 pt-4 max-sm:gap-x-7">
           {hand.length === 0 && <p className="pixel flex h-[157px] w-full items-center justify-center rounded-xl border-2 border-dashed border-border text-muted-foreground">{t("hand.empty")}</p>}
           {LAND_ORDER.map((type) => {
             const group = hand.filter((c) => c.type === type);
             return (
               group.length > 0 && (
-                <div key={type} className="flex gap-3 max-sm:gap-0">
+                <div key={type} className="flex gap-5 max-sm:gap-0">
                   {group.map((c, i) => {
                     const playable = playsFor(c.id).length > 0;
                     return (
