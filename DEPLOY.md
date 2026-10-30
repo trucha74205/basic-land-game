@@ -38,8 +38,10 @@ All following commands run in `basic-land-game/deploy` on the Pi.
 Generate the Web Push keys once and keep them. Changing them later drops every push subscription:
 
 ```sh
-npx web-push generate-vapid-keys
+docker run --rm node:22-bookworm-slim npx --yes web-push generate-vapid-keys
 ```
+
+This runs `npx` inside a throwaway Node container, so Node does not need to be installed on the Pi.
 
 Create the environment file:
 
