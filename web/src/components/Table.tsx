@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { type CSSProperties, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { Action, Card, LandType, StackItem } from "basic-land-engine";
 import { useGame, useShown } from "@/lib/store";
 import type { SeatSummary } from "@/lib/store";
@@ -27,6 +27,8 @@ const TILE_W = 80;
 const STACK_SHOWN = 3;
 /** Pixels of each card that stay visible under the next one in a battlefield pile (the hand uses the same fan, larger). */
 const FAN_X = 12;
+/** Desktop piles fan downwards instead: pixels of each card that stay visible under the next one. */
+const FAN_Y = 16;
 
 /** The cards a pile shows, highest `rank` last: that one lies in front and is the only one highlighted. Same-type cards play alike, so which ones are shown does not matter for the rules. */
 function fan<T>(cards: T[], rank: (c: T) => number, max = STACK_SHOWN): { shown: T[]; lead: T } {
@@ -245,7 +247,7 @@ export function Table() {
       const { shown, lead } = fan(cards, (c) => (target === c.id ? 3 : pinned.has(c.id) ? 2 : targetable(c) ? 1 : 0));
       return (
         <div className="flex flex-col items-center gap-1" style={{ minWidth: TILE_W }}>
-          <span className="pixel text-xs">{label ?? `x${cards.length}`}</span>
+          <span className={label ? "pixel text-xs" : "text-xs font-bold tabular-nums"}>{label ?? `x${cards.length}`}</span>
           <div className="flex flex-row-reverse pt-[6px]">
             {shown.map((c, i) => (
               <div key={c.id} style={{ zIndex: i, top: -i * 3, marginRight: i > 0 ? FAN_X - TILE_W : 0 }} className="relative">
@@ -259,7 +261,8 @@ export function Table() {
     const yard = view.graveyards[p];
     const yardFan = fan([...yard].reverse(), (c) => (target === c.id ? 2 : targetable(c) ? 1 : 0));
     return (
-      <section aria-label={name(p)} className={cn("flex flex-col gap-3 rounded-2xl border p-2 shadow-sm transition-colors max-sm:gap-1 max-sm:p-1.5 sm:p-4", needsTarget ? "bg-muted" : "playmat", mine && !needsTarget && "ring-1 ring-primary/30")}>
+      <div className="flex items-stretch gap-3 max-sm:gap-1">
+      <section aria-label={name(p)} className={cn("min-w-0 flex-1 flex flex-col gap-3 rounded-2xl border p-2 shadow-sm transition-colors max-sm:gap-1 max-sm:p-1.5 sm:p-4", needsTarget ? "bg-muted" : "playmat", mine && !needsTarget && "ring-1 ring-primary/30")}>
         <div className="flex flex-wrap items-center gap-2">
           <h2 className="pixel text-lg">{mine ? t("common.you") : name(p)}</h2>
           {!mine && <span data-ref={`hand-${p}`}><PixelBadge tone="neutral" size="sm">{t("table.hand", { n: view.opponentHandCount })}</PixelBadge></span>}
@@ -284,29 +287,30 @@ export function Table() {
               );
             })}
           </div>
-          <div data-ref={`yard-${p}`} className="box-content flex w-[108px] shrink-0 flex-col items-center gap-1 border-l border-dashed border-border pl-3 max-sm:pl-2" aria-label={t("table.graveyard")}>
-            {yard.length === 0 ? (
-              <>
-                <span className="pixel text-xs text-muted-foreground">{t("table.graveyard")}</span>
-                <div className="w-full rounded-xl border-2 border-dashed border-border opacity-30" style={{ height: TILE_H }} aria-hidden="true" />
-              </>
-            ) : (
-              <div className="relative flex w-full flex-col items-center gap-1">
-                <span className="pixel text-xs">{t("table.graveyard")} x{yard.length}</span>
-                {/* the newest cards lie in front, fanned like every other pile */}
-                <div className="flex flex-row-reverse pt-[6px]">
-                  {yardFan.shown.map((c, i) => (
-                    <div key={c.id} style={{ zIndex: i, top: -i * 3, marginRight: i > 0 ? FAN_X - TILE_W : 0 }} className="relative">
-                      <Tile land={c.type} art={artOf(p)} where="graveyard" size="sm" hot={c === yardFan.lead && targetable(c) && target !== c.id} selected={target === c.id} cardId={c.id} />
-                    </div>
-                  ))}
-                </div>
-                <button type="button" aria-label={t("table.graveyardOpen", { name: mine ? t("common.you") : name(p), n: yard.length })} onClick={() => setYardOf(p)} className="absolute inset-0 z-50 !min-h-0 rounded-xl hover:bg-white/10" />
-              </div>
-            )}
-          </div>
         </div>
       </section>
+        <aside data-ref={`yard-${p}`} className={cn("flex w-[112px] shrink-0 flex-col items-center justify-center gap-1 rounded-2xl border-2 border-dashed border-border p-2 shadow-sm transition-colors max-sm:min-w-[92px] max-sm:p-1 max-sm:[zoom:0.6] max-[380px]:[zoom:0.54]", needsTarget ? "bg-muted" : "bg-accent/60")} aria-label={t("table.graveyard")}>
+          {yard.length === 0 ? (
+            <>
+              <span className="pixel text-xs text-muted-foreground"><span className="max-sm:hidden">{t("table.graveyard")}</span><span className="sm:hidden">{t("table.graveyardShort")}</span></span>
+              <div className="w-full rounded-xl border-2 border-dashed border-border opacity-30" style={{ height: TILE_H }} aria-hidden="true" />
+            </>
+          ) : (
+            <div className="relative flex w-full flex-col items-center gap-1">
+              <span className="pixel text-xs"><span className="max-sm:hidden">{t("table.graveyard")}</span><span className="sm:hidden">{t("table.graveyardShort")}</span> <span className="font-bold tabular-nums">x{yard.length}</span></span>
+              {/* the newest cards lie in front, fanned like every other pile */}
+              <div className="flex flex-row-reverse pt-[6px] sm:flex-col-reverse">
+                {yardFan.shown.map((c, i) => (
+                  <div key={c.id} style={{ zIndex: i, top: -i * 3, "--fx": `${i > 0 ? FAN_X - TILE_W : 0}px`, "--fy": `${i > 0 ? FAN_Y - TILE_H : 0}px` } as CSSProperties} className={cn("relative sm:!top-0 max-sm:mr-[var(--fx)] sm:mb-[var(--fy)]", i < yardFan.shown.length - 1 ? "max-sm:hidden" : "max-sm:!top-0 max-sm:!mr-0")}>
+                    <Tile land={c.type} art={artOf(p)} where="graveyard" size="sm" hot={c === yardFan.lead && targetable(c) && target !== c.id} selected={target === c.id} cardId={c.id} />
+                  </div>
+                ))}
+              </div>
+              <button type="button" aria-label={t("table.graveyardOpen", { name: mine ? t("common.you") : name(p), n: yard.length })} onClick={() => setYardOf(p)} className="absolute inset-0 z-50 !min-h-0 rounded-xl hover:bg-white/10" />
+            </div>
+          )}
+        </aside>
+      </div>
     );
   };
 
@@ -351,7 +355,7 @@ export function Table() {
                 group.length > 0 && (
                   <div key={type} className={cn("relative flex flex-row-reverse", !picked && group.some((c) => playsFor(c.id).length > 0) && "tile-hot")}>
                     {group.length > pile.length && (
-                      <span aria-label={t("hand.count", { n: group.length, land: type })} className="pixel absolute -right-1.5 -top-2.5 z-30 rounded-full border-2 border-border bg-background px-2 text-base font-bold leading-6 shadow">x{group.length}</span>
+                      <span aria-label={t("hand.count", { n: group.length, land: type })} className="tabular-nums absolute -right-1.5 -top-2.5 z-30 rounded-full border-2 border-border bg-background px-2 text-base font-bold leading-6 shadow">x{group.length}</span>
                     )}
                     {pile.map((c, i) => {
                       const playable = playsFor(c.id).length > 0;

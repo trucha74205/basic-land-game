@@ -180,6 +180,7 @@ const en = {
   "table.hand": "Hand: {n}",
   "table.library": "Library: {n}",
   "table.graveyard": "Graveyard",
+  "table.graveyardShort": "GY",
   "table.graveyardOpen": "{name}: graveyard, {n} cards. Open",
   "table.graveyardPick": "Choose a target in the graveyard",
   "stack.counters": "counters the item below",
