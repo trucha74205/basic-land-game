@@ -13,7 +13,7 @@ export function Fade({ children }: { children: ReactNode }) {
     return d;
   });
   const kept = useRef<ReactNode>(null);
-  const [leaving, setLeaving] = useState(false);
+  const [, rerender] = useState(0);
   const has = children != null && children !== false;
   if (has) kept.current = children;
 
@@ -23,7 +23,6 @@ export function Fade({ children }: { children: ReactNode }) {
   }, [el]);
   useEffect(() => {
     if (has) {
-      setLeaving(false);
       el.style.pointerEvents = "";
       const id = requestAnimationFrame(() => requestAnimationFrame(() => (el.style.opacity = "1")));
       return () => cancelAnimationFrame(id);
@@ -31,12 +30,12 @@ export function Fade({ children }: { children: ReactNode }) {
     if (!kept.current) return;
     el.style.opacity = "0";
     el.style.pointerEvents = "none";
-    setLeaving(true);
-    const id = setTimeout(() => ((kept.current = null), setLeaving(false)), FADE_MS + 20);
+    const id = setTimeout(() => ((kept.current = null), rerender((n) => n + 1)), FADE_MS + 20);
     return () => clearTimeout(id);
   }, [has, el]);
 
-  if (!has && !leaving) return null;
+  // while leaving, the last content stays mounted in the same render that turns `has` off, so the modal never remounts mid-fade
+  if (!kept.current) return null;
   return <FadeCtx.Provider value={el}>{kept.current}</FadeCtx.Provider>;
 }
 
