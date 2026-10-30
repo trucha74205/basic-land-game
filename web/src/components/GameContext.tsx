@@ -6,6 +6,8 @@ export interface GameApi {
   send(action: Action): void;
   setArt(art: ArtChoice): void;
   rematch(): void;
+  accept(): void;
+  kick(): void;
   gameId: string;
   token: string;
 }

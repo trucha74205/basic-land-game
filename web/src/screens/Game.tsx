@@ -109,6 +109,8 @@ export function GameScreen() {
       send,
       setArt: (art: ArtChoice) => void conn.current?.send({ t: "art", art }),
       rematch: () => void conn.current?.send({ t: "rematch" }),
+      accept: () => void conn.current?.send({ t: "accept" }),
+      kick: () => void conn.current?.send({ t: "kick" }),
       gameId,
       token: token ?? "",
     }),
@@ -133,6 +135,7 @@ export function GameScreen() {
   }
 
   const opp = game.seats.find((s) => s.seat !== game.seat);
+  const guest = game.seats.find((s) => s.seat === 1 && s.pending);
   const code = getSession(gameId)?.code;
   const invite = code ? `${location.origin}/j/${code}` : null;
 
@@ -149,8 +152,20 @@ export function GameScreen() {
           <main className="mx-auto grid max-w-md gap-4 p-4 pt-10">
             <PixelCard title={t("lobby.title")}>
               <div className="grid gap-3">
-                <p className="text-lg">{t("lobby.waiting")}</p>
-                {invite && (
+                {guest && game.seat === 0 ? (
+                  <>
+                    <p role="status" className="text-lg">{t("lobby.request", { name: guest.nickname })}</p>
+                    <div className="flex gap-3">
+                      <PixelButton tone="neutral" variant="outline" fullWidth onClick={api.kick}>{t("lobby.kick")}</PixelButton>
+                      <PixelButton tone="purple" className={CTA} fullWidth onClick={api.accept}>{t("lobby.accept")}</PixelButton>
+                    </div>
+                  </>
+                ) : game.seat === 1 ? (
+                  <p role="status" className="text-lg">{t("lobby.awaitHost")}</p>
+                ) : (
+                  <p className="text-lg">{t("lobby.waiting")}</p>
+                )}
+                {invite && !guest && game.seat === 0 && (
                   <>
                     <PixelInput readOnly label={t("lobby.invite")} value={invite} onFocus={(e) => e.currentTarget.select()} />
                     <PixelButton tone="purple" className={CTA} onClick={() => navigator.clipboard?.writeText(invite)}>{t("lobby.copy")}</PixelButton>

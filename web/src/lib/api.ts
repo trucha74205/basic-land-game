@@ -31,8 +31,25 @@ export const createGame = (nickname: string, options: Options) =>
 export const getInvite = (code: string) =>
   call<{ gameId: string; creatorNickname: string; options: Options; full: boolean }>(`/api/invites/${encodeURIComponent(code)}`).then((r) => r.body);
 
-export const joinGame = (code: string, nickname: string) =>
-  call<{ gameId: string; seat: 1; token: string }>(`/api/invites/${encodeURIComponent(code)}/join`, { method: "POST", body: JSON.stringify({ nickname }) }).then((r) => r.body);
+/** `request` asks the host for the seat (open-games list) instead of starting the game at once (invite link). */
+export const joinGame = (code: string, nickname: string, request = false) =>
+  call<{ gameId: string; seat: 1; token: string }>(`/api/invites/${encodeURIComponent(code)}/join`, { method: "POST", body: JSON.stringify({ nickname, ...(request ? { request } : {}) }) }).then((r) => r.body);
+
+export interface OpenGame {
+  code: string;
+  creatorNickname: string;
+  options: Options;
+  createdAt: number;
+}
+export const listOpenGames = () => call<{ games: OpenGame[] }>("/api/games/open").then((r) => r.body.games);
+
+export interface GameSummary {
+  status: "waiting" | "active" | "finished" | "cancelled" | "abandoned";
+  opponent: string | null;
+  pending: boolean;
+}
+export const getGameSummary = (gameId: string, token: string) =>
+  call<GameSummary>(`/api/games/${gameId}`, { headers: { authorization: `Bearer ${token}` } }).then((r) => r.body);
 
 export interface PrintingItem {
   id: string;

@@ -22,7 +22,7 @@ function show(v: PlayerView, legal: Action[], seat: 0 | 1 = 0) {
     { seat: 0, nickname: "Anna", connected: true, art: {} }, { seat: 1, nickname: "Ben", connected: true, art: {} }] });
   return render(
     <MemoryRouter>
-      <GameCtx.Provider value={{ send, setArt: vi.fn(), rematch: vi.fn(), gameId: "g", token: "t" }}>
+      <GameCtx.Provider value={{ send, setArt: vi.fn(), rematch: vi.fn(), accept: vi.fn(), kick: vi.fn(), gameId: "g", token: "t" }}>
         <Table />
       </GameCtx.Provider>
     </MemoryRouter>,

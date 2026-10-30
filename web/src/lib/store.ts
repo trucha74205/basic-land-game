@@ -13,6 +13,8 @@ export interface SeatSummary {
   nickname: string;
   connected: boolean;
   art: ArtChoice;
+  /** A guest asked to join and waits for the host. */
+  pending?: boolean;
 }
 export interface Rematch {
   votes: number[];
