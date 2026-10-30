@@ -1,0 +1,30 @@
+services:
+  blg:
+    image: blg:${TAG:-latest}
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    expose: ["3000"]
+    networks: [proxy]
+    env_file: .env
+    environment:
+      DATA_DIR: /data
+    volumes: ["blg-data:/data"]
+    read_only: true
+    tmpfs: ["/tmp"]
+    user: "1000:1000"
+    mem_limit: 256m
+    healthcheck:
+      test: ["CMD", "node", "healthcheck.js"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+volumes:
+  blg-data: {}
+networks:
+  proxy:
+    external: true # the network your nginx container is attached to

@@ -1,0 +1,37 @@
+{
+  "Plains": {
+    "id": "4ef17ed4-a9b5-4b8e-b4cb-2ecb7e5898c3",
+    "set": "fdn",
+    "setName": "Foundations",
+    "collectorNumber": "272",
+    "artist": "Rebecca Guay"
+  },
+  "Island": {
+    "id": "23635e40-d040-40b7-8b98-90ed362aa028",
+    "set": "fdn",
+    "setName": "Foundations",
+    "collectorNumber": "275",
+    "artist": "Rebecca Guay"
+  },
+  "Swamp": {
+    "id": "13505c15-14e0-4200-82bd-fb9bce949e68",
+    "set": "fdn",
+    "setName": "Foundations",
+    "collectorNumber": "277",
+    "artist": "Rebecca Guay"
+  },
+  "Mountain": {
+    "id": "1edc5050-69bd-416d-b04c-7f82de2a1901",
+    "set": "fdn",
+    "setName": "Foundations",
+    "collectorNumber": "279",
+    "artist": "Rebecca Guay"
+  },
+  "Forest": {
+    "id": "d232fcc2-12f6-401a-b1aa-ddff11cb9378",
+    "set": "fdn",
+    "setName": "Foundations",
+    "collectorNumber": "280",
+    "artist": "Rebecca Guay"
+  }
+}

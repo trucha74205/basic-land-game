@@ -1,0 +1,10 @@
+{
+  "name": "blg",
+  "private": true,
+  "type": "module",
+  "workspaces": ["engine", "server", "web"],
+  "scripts": {
+    "test": "npm test --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present"
+  }
+}
