@@ -301,7 +301,7 @@ export function Table() {
                     </div>
                   ))}
                 </div>
-                <button type="button" aria-label={t("table.graveyardOpen", { name: mine ? t("common.you") : name(p), n: yard.length })} onClick={() => setYardOf(p)} className="absolute inset-0 !min-h-0 rounded-xl hover:bg-white/10" />
+                <button type="button" aria-label={t("table.graveyardOpen", { name: mine ? t("common.you") : name(p), n: yard.length })} onClick={() => setYardOf(p)} className="absolute inset-0 z-50 !min-h-0 rounded-xl hover:bg-white/10" />
               </div>
             )}
           </div>
