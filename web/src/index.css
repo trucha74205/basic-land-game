@@ -46,6 +46,8 @@
   html { font-size: 16px; }
   body { @apply bg-background text-foreground font-sans antialiased; min-height: 100dvh; }
   button, [role="button"], a, input, select { min-height: 44px; }
+  /* everything that reacts to a click shows it */
+  button:not(:disabled), [role="button"]:not([aria-disabled="true"]), a[href], select, summary, [role="option"], label:has(input[type="checkbox"]), input[type="checkbox"], input[type="range"] { cursor: pointer; }
   /* form controls do not inherit the page font by default */
   button, input, select, textarea { font-family: inherit; }
   :focus-visible { outline: 3px solid var(--ring); outline-offset: 2px; }
@@ -97,6 +99,9 @@ html[data-look="clean"] .page-glow, html[data-look="clean"] .playmat { backgroun
     radial-gradient(120% 90% at 50% 0%, color-mix(in oklab, var(--retro-primary) 14%, transparent), transparent 70%),
     var(--retro-surface);
 }
+
+/* a modal whose title is a land: the title becomes that land's coloured chip (FadeModal sets the variables) */
+div[style*="--modal-title-bg"] [role="dialog"] h4 { display: inline-block; padding: 0 0.5rem; border-radius: 4px; background: var(--modal-title-bg); color: var(--modal-title-fg); }
 
 /* a non-dismissable modal has no close button (the kit always renders one) */
 button[aria-label="no-close"] { display: none; }

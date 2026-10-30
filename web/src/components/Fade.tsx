@@ -39,7 +39,17 @@ export function Fade({ children }: { children: ReactNode }) {
   return <FadeCtx.Provider value={el}>{kept.current}</FadeCtx.Provider>;
 }
 
-/** PixelModal that portals into the surrounding Fade. */
-export function FadeModal(props: ComponentProps<typeof PixelModal>) {
-  return <PixelModal container={useContext(FadeCtx)} {...props} />;
+/** PixelModal that portals into the surrounding Fade. `land` tints the title as that land's chip. */
+export function FadeModal({ land, ...props }: ComponentProps<typeof PixelModal> & { land?: string }) {
+  const el = useContext(FadeCtx);
+  useEffect(() => {
+    if (!el || !land) return;
+    el.style.setProperty("--modal-title-bg", `var(--land-${land.toLowerCase()})`);
+    el.style.setProperty("--modal-title-fg", land === "Plains" ? "var(--land-plains-fg)" : "#fff");
+    return () => {
+      el.style.removeProperty("--modal-title-bg");
+      el.style.removeProperty("--modal-title-fg");
+    };
+  }, [el, land]);
+  return <PixelModal container={el} {...props} />;
 }
