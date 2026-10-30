@@ -25,8 +25,8 @@ const TONE: Record<Tone, string> = {
 };
 
 /** The card itself, small and a little faded so it does not shout. */
-const Land = ({ type }: { type: string }) => (
-  <span className={cn("mx-px inline-block rounded px-1 text-[10px] font-bold leading-4 opacity-80", FRAME[type as LandType] ?? "bg-muted")}>{type}</span>
+export const Land = ({ type, big }: { type: string; big?: boolean }) => (
+  <span className={cn("mx-px inline-block rounded font-bold", big ? "px-1.5 text-sm leading-5" : "px-1 text-[10px] leading-4 opacity-80", FRAME[type as LandType] ?? "bg-muted")}>{type}</span>
 );
 
 interface Row {
@@ -107,21 +107,26 @@ function finish(player: number, land: string, events: GameEvent[], seat: number 
   const done = !!result || (land === "Plains" && !!declared && !events.some((e) => e.type === "LandCountered"));
   const chip = (type?: string) => (type ? <Land type={type} /> : null);
   let object: ReactNode = null;
+  let known = true; // whether the land's action hit a known card; without one only the played land is told
   if (land === "Mountain") {
     const owner = result && "player" in result ? result.player : declared ? ownerOf(declared.target) : other(player);
+    known = !!(card || declared);
     object = <>{chip(card?.type ?? (declared ? landOfId(declared.target) : undefined))} {fromWho(owner, c)}</>;
   } else if (land === "Swamp") {
     const owner = result && "player" in result ? result.player : other(player);
+    known = !!card;
     object = <>{chip(card?.type)} {fromHand(owner, c)}</>;
   } else if (land === "Forest") {
+    known = !!(card || declared);
     object = <>{chip(card?.type ?? (declared ? landOfId(declared.target) : undefined))} {fromYard(player, c)}</>;
   } else if (land === "Plains") {
+    known = !!declared;
     object = declared ? <>{poss(ownerOf(declared.target), c)} {chip(landOfId(declared.target))}</> : null;
   } else {
     object = card ? chip(card.type) : t("log.aCard");
   }
   const rows = events.filter((e) => e !== result).map((e) => rowFor(e, c)).filter((r): r is Row => r !== null);
-  return { player, head: <>{act(land, done)} {object}</>, rows };
+  return { player, head: <>{t("log.played")} <Land type={land} />{known && <>: {act(land, done)} {object}</>}</>, rows };
 }
 
 /** Events grouped by turn, and within a turn by land drop. */
@@ -161,36 +166,16 @@ export function useLogOpen(): boolean {
 }
 const toggleLog = () => saveSettings({ ...getSettings(), log: !getSettings().log });
 
-/** The always-visible game log (desktop): newest turn first, the last two turns open, a divider between turns. Kept quiet: small, faded until hovered. */
-export function GameLog() {
-  const { log, hold, seat } = useGame();
-  const [all, setAll] = useState(false);
-  const open = useLogOpen();
-  useKey((e) => (e.key.toLowerCase() === "l" && !dialogOpen() ? (toggleLog(), true) : false));
-  const shown = hold ? log.slice(0, hold.logLen) : log; // do not spoil what the board is still playing out
-  const who = (p: number) => (p === seat ? t("common.you") : t("common.opponent"));
-  const turns = useMemo(() => group(shown, seat, who).reverse(), [shown, seat]);
-  const visible = all ? turns : turns.slice(0, SHOWN_TURNS);
-  const hidden = turns.length - visible.length;
-  const dot = (p: number) => (p === seat ? "text-sky-600 dark:text-sky-400" : "text-orange-600 dark:text-orange-400");
+const dotFor = (p: number, seat: number | null) => (p === seat ? "text-sky-600 dark:text-sky-400" : "text-orange-600 dark:text-orange-400");
 
-  if (!open)
-    return (
-      <div className="fixed right-[max(1rem,calc((100vw-1340px)/2+1rem))] top-16 z-20 max-lg:hidden">
-        <PixelButton tone="neutral" variant="outline" size="sm" onClick={toggleLog}>{t("log.show")}</PixelButton>
-      </div>
-    );
-
+/** Turns with their land drops and events, as the desktop panel and the phone strip show them. */
+function TurnList({ turns, who }: { turns: Turn[]; who: (p: number) => string }) {
+  const seat = useGame((s) => s.seat);
+  const dot = (p: number) => dotFor(p, seat);
   return (
-    <aside aria-label={t("log.panel")} className="flex min-h-0 flex-col gap-2 rounded-2xl border border-border/50 bg-card/40 p-3 opacity-75 transition-opacity hover:opacity-100 focus-within:opacity-100 max-lg:hidden xl:sticky xl:top-16 xl:max-h-[calc(100dvh-5rem)]">
-      <div className="flex shrink-0 items-center justify-between">
-        <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{t("log.panel")}</h2>
-        <PixelButton tone="neutral" variant="ghost" size="sm" onClick={toggleLog}>{t("log.hide")}</PixelButton>
-      </div>
-      <div className="flex min-h-0 flex-col overflow-y-auto pr-1 max-xl:max-h-72">
-        {turns.length === 0 && <p className="text-xs text-muted-foreground">{t("log.empty")}</p>}
-        {visible.map((tn, i) => (
-          <section key={tn.key} className={cn("flex flex-col gap-1 py-2", i > 0 && "border-t border-border/60")}>
+    <>
+        {turns.map((tn, i) => (
+          <div key={tn.key} className={cn("flex flex-col gap-1 py-2", i > 0 && "border-t border-border/60")}>
             <h3 className="flex items-center gap-2 text-xs font-semibold">
               {tn.turn === null ? t("log.start") : t("log.turn", { n: tn.turn })}
               {tn.player !== null && <span className={cn("font-medium", dot(tn.player))}>{who(tn.player)}</span>}
@@ -207,8 +192,63 @@ export function GameLog() {
                 ))}
               </div>
             ))}
-          </section>
+          </div>
         ))}
+    </>
+  );
+}
+
+/** Phones and tablets: the newest turn under the hand, the whole log on demand. */
+export function MobileLog() {
+  const { log, hold, seat } = useGame();
+  const [all, setAll] = useState(false);
+  const shown = hold ? log.slice(0, hold.logLen) : log;
+  const who = (p: number) => (p === seat ? t("common.you") : t("common.opponent"));
+  const turns = useMemo(() => group(shown, seat, who).reverse(), [shown, seat]);
+  const visible = all ? turns : turns.slice(0, 1);
+  return (
+    <aside aria-label={t("log.panel")} className="flex flex-col gap-1 rounded-2xl border border-border/50 bg-card/40 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+      <div className="flex items-center justify-between">
+        <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{t("log.panel")}</h2>
+        {turns.length > 1 && (
+          <PixelButton tone="neutral" variant="outline" size="sm" aria-expanded={all} onClick={() => setAll(!all)}>{all ? t("log.collapse") : t("log.expand")}</PixelButton>
+        )}
+      </div>
+      <div className={cn("flex flex-col", all && "max-h-[50dvh] overflow-y-auto")}>
+        {turns.length === 0 && <p className="text-xs text-muted-foreground">{t("log.empty")}</p>}
+        <TurnList turns={visible} who={who} />
+      </div>
+    </aside>
+  );
+}
+
+/** The always-visible game log (desktop): newest turn first, the last two turns open, a divider between turns. Kept quiet: small, faded until hovered. */
+export function GameLog() {
+  const { log, hold, seat } = useGame();
+  const [all, setAll] = useState(false);
+  const open = useLogOpen();
+  useKey((e) => (e.key.toLowerCase() === "l" && !dialogOpen() ? (toggleLog(), true) : false));
+  const shown = hold ? log.slice(0, hold.logLen) : log; // do not spoil what the board is still playing out
+  const who = (p: number) => (p === seat ? t("common.you") : t("common.opponent"));
+  const turns = useMemo(() => group(shown, seat, who).reverse(), [shown, seat]);
+  const visible = all ? turns : turns.slice(0, SHOWN_TURNS);
+  const hidden = turns.length - visible.length;
+  if (!open)
+    return (
+      <div className="fixed right-[max(1rem,calc((100vw-1340px)/2+1rem))] top-16 z-20 max-lg:hidden">
+        <PixelButton tone="neutral" variant="outline" size="sm" onClick={toggleLog}>{t("log.show")}</PixelButton>
+      </div>
+    );
+
+  return (
+    <aside aria-label={t("log.panel")} className="flex min-h-0 flex-col gap-2 rounded-2xl border border-border/50 bg-card/40 p-3 opacity-75 transition-opacity hover:opacity-100 focus-within:opacity-100 max-lg:hidden xl:sticky xl:top-16 xl:max-h-[calc(100dvh-5rem)]">
+      <div className="flex shrink-0 items-center justify-between">
+        <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{t("log.panel")}</h2>
+        <PixelButton tone="neutral" variant="ghost" size="sm" onClick={toggleLog}>{t("log.hide")}</PixelButton>
+      </div>
+      <div className="flex min-h-0 flex-col overflow-y-auto pr-1 max-xl:max-h-72">
+        {turns.length === 0 && <p className="text-xs text-muted-foreground">{t("log.empty")}</p>}
+        <TurnList turns={visible} who={who} />
         {turns.length > SHOWN_TURNS && (
           <PixelButton tone="neutral" variant="ghost" size="sm" onClick={() => setAll(!all)}>{all ? t("log.newer") : t("log.older", { n: hidden })}</PixelButton>
         )}
