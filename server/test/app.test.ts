@@ -222,3 +222,64 @@ describe("WebSocket", () => {
     expect((await next.waitFor((m) => m.t === "snapshot")).status).toBe("active");
   });
 });
+
+describe("open games", () => {
+  it("lists waiting games whose host is online, with options and host name", async () => {
+    h = await startHarness();
+    const a = (await post(h, "/api/games", { nickname: "Anna", options: { deckSize: "half", maxTurns: 20 } })).json();
+    expect((await h.app.inject({ url: "/api/games/open" })).json().games).toEqual([]);
+    const host = await connect(h, a.gameId, a.token);
+    await host.waitFor((m) => m.t === "snapshot");
+    const games = (await h.app.inject({ url: "/api/games/open" })).json().games;
+    expect(games).toMatchObject([{ code: a.code, creatorNickname: "Anna", options: { deckSize: "half", maxTurns: 20 } }]);
+    host.close();
+  });
+
+  it("a join request waits for the host: accept starts the game, kick frees the seat", async () => {
+    h = await startHarness();
+    const a = (await post(h, "/api/games", { nickname: "Anna", options: { firstPlayer: "me" } })).json();
+    const host = await connect(h, a.gameId, a.token);
+    await host.waitFor((m) => m.t === "snapshot");
+
+    const j = (await post(h, `/api/invites/${a.code}/join`, { nickname: "Ben", request: true })).json();
+    const guest = await connect(h, a.gameId, j.token);
+    const snap = await guest.waitFor((m) => m.t === "snapshot");
+    expect(snap.status).toBe("waiting");
+    expect(snap.seats[1]).toMatchObject({ nickname: "Ben", pending: true });
+    await host.waitFor((m) => m.t === "presence" && m.seats[1]?.pending);
+    expect((await h.app.inject({ url: "/api/games/open" })).json().games).toEqual([]);
+    expect((await post(h, `/api/invites/${a.code}/join`, { nickname: "Cleo", request: true })).statusCode).toBe(409);
+
+    guest.send({ t: "accept" });
+    await new Promise((r) => setTimeout(r, 50));
+    expect(h.svc.statusOf(a.gameId)).toBe("waiting");
+
+    host.send({ t: "kick" });
+    await guest.waitFor((m) => m.t === "error" && m.code === "bad_token");
+    await host.waitFor((m) => m.t === "presence" && m.seats.length === 1);
+    expect((await h.app.inject({ url: "/api/games/open" })).json().games).toHaveLength(1);
+
+    const j2 = (await post(h, `/api/invites/${a.code}/join`, { nickname: "Cleo", request: true })).json();
+    await host.waitFor((m) => m.t === "presence" && m.seats[1]?.nickname === "Cleo");
+    host.send({ t: "accept" });
+    await host.waitFor((m) => m.t === "snapshot" && m.status === "active");
+    const guest2 = await connect(h, a.gameId, j2.token);
+    expect((await guest2.waitFor((m) => m.t === "snapshot")).status).toBe("active");
+    host.close();
+    guest2.close();
+  });
+
+  it("an invite link still starts the game at once", async () => {
+    const { gameId } = await twoPlayers();
+    expect(h.svc.statusOf(gameId)).toBe("active");
+  });
+});
+
+describe("game summary", () => {
+  it("tells a seat the status and opponent, and rejects other tokens", async () => {
+    const { gameId, anna } = await twoPlayers();
+    const ok = await h.app.inject({ url: `/api/games/${gameId}`, headers: { authorization: `Bearer ${anna}` } });
+    expect(ok.json()).toMatchObject({ status: "active", opponent: "Ben" });
+    expect((await h.app.inject({ url: `/api/games/${gameId}`, headers: { authorization: "Bearer nope" } })).statusCode).toBe(401);
+  });
+});

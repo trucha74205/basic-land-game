@@ -55,12 +55,29 @@ export async function buildApp(d: Deps): Promise<FastifyInstance> {
 
   // ---- games
 
+  const seatOf = (req: FastifyRequest, gameId: string): 0 | 1 => {
+    const m = /^Bearer (.+)$/.exec(req.headers.authorization ?? "");
+    const seat = m ? svc.authenticate(gameId, m[1]!) : null;
+    if (seat === null) throw new HttpError(401, "bad_token", "Invalid seat token");
+    return seat;
+  };
+
   app.post("/api/games", limited(10), async (req) => {
     const body = createBody.parse(req.body);
     return svc.createGame(body.nickname, body.options);
   });
   app.get<{ Params: { code: string } }>("/api/invites/:code", limited(30), async (req) => svc.inviteInfo(req.params.code));
-  app.post<{ Params: { code: string } }>("/api/invites/:code/join", limited(10), async (req) => svc.join(req.params.code, joinBody.parse(req.body).nickname));
+  app.post<{ Params: { code: string } }>("/api/invites/:code/join", limited(10), async (req) => {
+    const body = joinBody.parse(req.body);
+    return svc.join(req.params.code, body.nickname, body.request);
+  });
+  app.get("/api/games/open", limited(60), async () => ({ games: svc.openGames((id) => hub.isConnected(id)(0)) }));
+  app.get<{ Params: { id: string } }>("/api/games/:id", limited(60), async (req) => {
+    const seat = seatOf(req, req.params.id);
+    const s = svc.summary(req.params.id, seat);
+    if (!s) throw new HttpError(404, "game_not_found", "Unknown game");
+    return s;
+  });
 
   // ---- art
 
@@ -91,13 +108,6 @@ export async function buildApp(d: Deps): Promise<FastifyInstance> {
     if (!cfg.vapid) return reply.code(404).send(err(404, "push_disabled", "Push is not configured").body);
     return { key: cfg.vapid.publicKey };
   });
-
-  const seatOf = (req: FastifyRequest, gameId: string): 0 | 1 => {
-    const m = /^Bearer (.+)$/.exec(req.headers.authorization ?? "");
-    const seat = m ? svc.authenticate(gameId, m[1]!) : null;
-    if (seat === null) throw new HttpError(401, "bad_token", "Invalid seat token");
-    return seat;
-  };
 
   app.put<{ Params: { id: string } }>("/api/games/:id/push", limited(30), async (req, reply: FastifyReply) => {
     const seat = seatOf(req, req.params.id);

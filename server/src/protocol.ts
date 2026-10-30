@@ -19,7 +19,8 @@ export const optionsSchema = z
 export type Options = z.infer<typeof optionsSchema>;
 
 export const createBody = z.object({ nickname, options: optionsSchema.default({}) }).strict();
-export const joinBody = z.object({ nickname }).strict();
+/** `request` asks the host for a seat (open-games list); without it an invite link takes the seat at once. */
+export const joinBody = z.object({ nickname, request: z.boolean().optional() }).strict();
 
 export const landTypeSchema = z.enum(LAND_TYPES);
 
@@ -51,6 +52,8 @@ export const clientMessage = z.discriminatedUnion("t", [
   z.object({ t: z.literal("action"), version: z.number().int().min(0), action: actionSchema }).strict(),
   z.object({ t: z.literal("art"), art: artSchema }).strict(),
   z.object({ t: z.literal("rematch") }).strict(),
+  z.object({ t: z.literal("accept") }).strict(),
+  z.object({ t: z.literal("kick") }).strict(),
   z.object({ t: z.literal("visibility"), visible: z.boolean() }).strict(),
   z.object({ t: z.literal("ping") }).strict(),
 ]);
@@ -61,6 +64,8 @@ export interface SeatSummary {
   nickname: string;
   connected: boolean;
   art: ArtChoice;
+  /** The guest asked to join and the host has not decided yet. */
+  pending?: boolean;
 }
 
 export type RejectReason = "stale_version" | "illegal" | "not_your_turn" | "game_over" | "bad_art";

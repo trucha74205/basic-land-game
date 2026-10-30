@@ -30,6 +30,7 @@ export type ServiceEvent =
   | { kind: "started"; gameId: string }
   | { kind: "update"; gameId: string; fromVersion: number }
   | { kind: "seats"; gameId: string }
+  | { kind: "kicked"; gameId: string; seat: 1 }
   | { kind: "rematch"; gameId: string };
 
 export interface ServiceOptions {
@@ -98,7 +99,7 @@ export class GameService {
       updatedAt: now,
       finishedAt: null,
     };
-    this.store.insertGame(row, { gameId: row.id, seat: 0, tokenHash: hashToken(token), nickname: nick, art: {}, ownerId: null, lastSeenAt: now });
+    this.store.insertGame(row, { gameId: row.id, seat: 0, tokenHash: hashToken(token), nickname: nick, art: {}, ownerId: null, lastSeenAt: now, accepted: true });
     return { gameId: row.id, code: row.code, seat: 0, token };
   }
 
@@ -114,7 +115,23 @@ export class GameService {
   inviteInfo(rawCode: string) {
     const row = this.rowByCode(rawCode);
     const seats = this.store.getSeats(row.id);
-    return { gameId: row.id, creatorNickname: seats[0]?.nickname ?? "", options: this.optionsOf(row.config), full: row.status !== "waiting" };
+    return { gameId: row.id, creatorNickname: seats[0]?.nickname ?? "", options: this.optionsOf(row.config), full: row.status !== "waiting" || seats.length > 1 };
+  }
+
+  /** Games waiting for a guest, for the list on the start screen. */
+  openGames(isHostOnline: (gameId: string) => boolean) {
+    return this.store
+      .listOpenGames(50)
+      .filter((row) => isHostOnline(row.id))
+      .map((row) => ({ code: row.code, creatorNickname: this.store.getSeats(row.id)[0]?.nickname ?? "", options: this.optionsOf(row.config), createdAt: row.createdAt }));
+  }
+
+  /** What the start screen needs to know about one of the caller's games. */
+  summary(gameId: string, seat: PlayerId) {
+    const live = this.load(gameId);
+    if (!live) return null;
+    const opp = live.seats.find((s) => s.seat !== seat);
+    return { status: live.row.status, opponent: opp?.nickname ?? null, pending: live.seats.some((s) => !s.accepted) };
   }
 
   private rowByCode(rawCode: string): GameRow {
@@ -124,17 +141,49 @@ export class GameService {
     return row;
   }
 
-  join(rawCode: string, nick: string): { gameId: string; seat: 1; token: string } {
+  /** With `request` the guest only asks for the seat and the host decides (accept or kick); otherwise the game starts at once. */
+  join(rawCode: string, nick: string, request = false): { gameId: string; seat: 1; token: string } {
     const row = this.rowByCode(rawCode);
-    if (row.status !== "waiting") throw new HttpError(409, "game_full", "This game is full");
+    if (row.status !== "waiting" || this.store.getSeats(row.id).length > 1) throw new HttpError(409, "game_full", "This game is full");
     const token = newToken();
     const now = this.now();
-    this.store.insertSeat({ gameId: row.id, seat: 1, tokenHash: hashToken(token), nickname: nick, art: {}, ownerId: null, lastSeenAt: now });
-    this.store.setStatus(row.id, "active", now);
+    this.store.insertSeat({ gameId: row.id, seat: 1, tokenHash: hashToken(token), nickname: nick, art: {}, ownerId: null, lastSeenAt: now, accepted: !request });
     this.live.delete(row.id);
-    this.load(row.id);
-    this.emit({ kind: "started", gameId: row.id });
+    if (request) {
+      this.load(row.id);
+      this.emit({ kind: "seats", gameId: row.id });
+    } else {
+      this.start(row.id, now);
+    }
     return { gameId: row.id, seat: 1, token };
+  }
+
+  private start(gameId: string, now: number): void {
+    this.store.setStatus(gameId, "active", now);
+    this.live.delete(gameId);
+    this.load(gameId);
+    this.emit({ kind: "started", gameId });
+  }
+
+  /** The host lets a waiting guest in and the game starts. */
+  accept(gameId: string, seat: PlayerId): boolean {
+    const live = this.load(gameId);
+    if (!live || seat !== 0 || live.row.status !== "waiting" || !live.seats.some((s) => s.seat === 1 && !s.accepted)) return false;
+    this.store.acceptSeat(gameId, 1);
+    this.start(gameId, this.now());
+    return true;
+  }
+
+  /** The host removes the waiting guest; the game is open for others again. */
+  kick(gameId: string, seat: PlayerId): boolean {
+    const live = this.load(gameId);
+    if (!live || seat !== 0 || live.row.status !== "waiting" || !live.seats.some((s) => s.seat === 1)) return false;
+    this.store.deleteSeat(gameId, 1);
+    this.live.delete(gameId);
+    this.load(gameId);
+    this.emit({ kind: "kicked", gameId, seat: 1 });
+    this.emit({ kind: "seats", gameId });
+    return true;
   }
 
   authenticate(gameId: string, token: string): 0 | 1 | null {
@@ -216,7 +265,7 @@ export class GameService {
   }
 
   private seatSummaries(live: Live): Omit<SeatSummary, "connected">[] {
-    return live.seats.map((s) => ({ seat: s.seat, nickname: s.nickname, art: s.art }));
+    return live.seats.map((s) => ({ seat: s.seat, nickname: s.nickname, art: s.art, ...(s.accepted ? {} : { pending: true }) }));
   }
 
   /** Seat list without presence; the hub adds `connected`. */

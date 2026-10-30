@@ -73,6 +73,10 @@ export class Hub {
   }
 
   private onService(e: ServiceEvent): void {
+    if (e.kind === "kicked") {
+      for (const c of this.conns) if (c.gameId === e.gameId && c.seat === e.seat) this.fail(c, "bad_token", "The host removed you from this game");
+      return;
+    }
     const conns = [...this.conns].filter((c) => c.gameId === e.gameId && c.seat !== null);
     const connected = this.isConnected(e.gameId);
     for (const c of conns) {
@@ -166,6 +170,12 @@ export class Hub {
       }
       case "rematch":
         this.svc.rematchVote(gameId, seat);
+        return;
+      case "accept":
+        this.svc.accept(gameId, seat);
+        return;
+      case "kick":
+        this.svc.kick(gameId, seat);
         return;
       case "visibility":
         c.visible = msg.visible;

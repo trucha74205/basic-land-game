@@ -27,6 +27,8 @@ export interface SeatRow {
   art: ArtChoice;
   ownerId: string | null;
   lastSeenAt: number | null;
+  /** False while a guest who asked to join from the open-games list waits for the host's decision. */
+  accepted: boolean;
 }
 
 export interface PushSub {
@@ -85,6 +87,7 @@ const MIGRATIONS: string[] = [
     path TEXT PRIMARY KEY, bytes INTEGER NOT NULL, accessed_at INTEGER NOT NULL
   );
   `,
+  `ALTER TABLE seats ADD COLUMN accepted INTEGER NOT NULL DEFAULT 1;`,
 ];
 
 export class Store {
@@ -156,6 +159,14 @@ export class Store {
     return this.db.prepare("SELECT * FROM games WHERE status = ?").all(status).map((r) => this.toGame(r));
   }
 
+  /** Games still waiting for a guest, with no join request pending, newest first. */
+  listOpenGames(limit: number): GameRow[] {
+    return this.db
+      .prepare("SELECT * FROM games g WHERE g.status = 'waiting' AND NOT EXISTS (SELECT 1 FROM seats s WHERE s.game_id = g.id AND s.seat = 1) ORDER BY g.created_at DESC LIMIT ?")
+      .all(limit)
+      .map((r) => this.toGame(r));
+  }
+
   setStatus(id: string, status: GameStatus, now: number): void {
     const finished = status === "finished" || status === "cancelled" ? now : null;
     this.db.prepare("UPDATE games SET status = ?, updated_at = ?, finished_at = COALESCE(?, finished_at) WHERE id = ?").run(status, now, finished, id);
@@ -169,8 +180,17 @@ export class Store {
 
   insertSeat(s: SeatRow): void {
     this.db
-      .prepare("INSERT INTO seats(game_id, seat, token_hash, nickname, art_json, owner_id, last_seen_at) VALUES (?,?,?,?,?,?,?)")
-      .run(s.gameId, s.seat, s.tokenHash, s.nickname, JSON.stringify(s.art), s.ownerId, s.lastSeenAt);
+      .prepare("INSERT INTO seats(game_id, seat, token_hash, nickname, art_json, owner_id, last_seen_at, accepted) VALUES (?,?,?,?,?,?,?,?)")
+      .run(s.gameId, s.seat, s.tokenHash, s.nickname, JSON.stringify(s.art), s.ownerId, s.lastSeenAt, s.accepted ? 1 : 0);
+  }
+
+  acceptSeat(gameId: string, seat: number): void {
+    this.db.prepare("UPDATE seats SET accepted = 1 WHERE game_id = ? AND seat = ?").run(gameId, seat);
+  }
+
+  deleteSeat(gameId: string, seat: number): void {
+    this.db.prepare("DELETE FROM seats WHERE game_id = ? AND seat = ?").run(gameId, seat);
+    this.db.prepare("DELETE FROM push_subscriptions WHERE game_id = ? AND seat = ?").run(gameId, seat);
   }
 
   getSeats(gameId: string): SeatRow[] {
@@ -185,6 +205,7 @@ export class Store {
         art: JSON.parse(r.art_json),
         ownerId: r.owner_id,
         lastSeenAt: r.last_seen_at,
+        accepted: r.accepted === 1,
       }));
   }
 

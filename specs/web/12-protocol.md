@@ -9,6 +9,9 @@ All payloads are JSON validated with zod. Engine types (`Action`, `PlayerView`, 
 | `POST /api/games` `{ nickname, options }` | none | Create a game. Returns `{ gameId, code, seat: 0, token }`. `options` = `{ deckSize, emptyLibrary, maxTurns, firstPlayer: "random" \| "me" \| "opponent" }`. |
 | `GET /api/invites/:code` | none | Public info for the join screen: `{ gameId, creatorNickname, options, full }`. |
 | `POST /api/invites/:code/join` `{ nickname }` | none | Take seat 1. Returns `{ gameId, seat: 1, token }`. 409 when full. |
+| `POST /api/invites/:code/join` `{ nickname, request: true }` | none | Ask for seat 1 from the open-games list: the game stays `waiting` and the seat is `pending` until the host sends `accept` (game starts) or `kick` (seat removed, guest socket closed with `bad_token`). |
+| `GET /api/games/open` | none | `{ games: [{ code, creatorNickname, options, createdAt }] }`: waiting games with no guest or request and an online host. |
+| `GET /api/games/:id` | Bearer seat token | `{ status, opponent, pending }`; the start screen hides finished games with it. |
 | `GET /api/printings/:landType` | none | Art gallery data for one land type, only used by the custom art picker (see `13-images.md`). `202 { status: "building" }` while the index is built, then `200 { status: "ready", printings: [{ id, set, setName, artist, year, collectorNumber }] }`; `502` when the index cannot be built. |
 | `GET /img/:scryfallId/:version` | none | Cached image, `version` in `art_crop`, `normal`, `small`. |
 | `PUT /api/games/:id/push` `{ subscription }` | Bearer seat token | Register this device for push (204). `DELETE` with the same body removes it. 404 when push is not configured. |
@@ -29,6 +32,7 @@ One connection per device and game. The first client message must be `hello` wit
 | `{ t: "action", version, action }` | Apply `action` if the game is at `version`. |
 | `{ t: "art", art }` | Set own custom art: `{ Plains?, Island?, Swamp?, Mountain?, Forest? }` as scryfall ids; `null` or a missing key means the bundled default. |
 | `{ t: "rematch" }` | Vote for a rematch. |
+| `{ t: "accept" }`, `{ t: "kick" }` | Host only, while a guest request is pending. |
 | `{ t: "visibility", visible }` | The page became visible or hidden (for push decisions). |
 | `{ t: "ping" }` | Keepalive every 25 s. |
 
