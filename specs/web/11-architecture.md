@@ -7,7 +7,7 @@ blg/
   engine/   pure rules engine (exists)
   server/   Fastify HTTP + WebSocket, SQLite, Scryfall proxy, Web Push
   web/      React + Vite PWA
-  deploy/   Dockerfile, docker-compose.yml, nginx example, env example
+  deploy/   Dockerfile, docker-compose.yml, env example
   specs/
 ```
 

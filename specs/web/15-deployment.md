@@ -3,104 +3,44 @@
 ## Topology
 
 ```
-Internet -> router (1701, 80 forwarded) -> Pi: nginx container (TLS, rate limits)
-                                              -> blg:1701 over a shared Docker network (Fastify: web app, API, WebSocket, images)
+Internet -> router (443, 80 forwarded) -> Pi: Nginx Proxy Manager (TLS, configured in its web UI)
+                                              -> <pi LAN address>:1701 (Fastify: web app, API, WebSocket, images)
                                                     volume /data (SQLite, image cache)
 ```
 
 ## Decisions
 
-- **D-01 [D]** Public access through router port forwarding, a Dyno hostname and Let's Encrypt certificates, handled by the existing nginx. Docker Compose runs the app container.
-- **D-02 [D]** One container serves the built web app, REST, WebSocket and the image proxy. nginx only terminates TLS and proxies.
+- **D-01 [D]** Public access through router port forwarding, a Dynu hostname (`basic-land-game.giize.com`) and Let's Encrypt certificates requested in Nginx Proxy Manager (NPM). Docker Compose runs the app container.
+- **D-02 [D]** One container serves the built web app, REST, WebSocket and the image proxy. NPM only terminates TLS and proxies.
 - **D-03 [D]** The ISP provides a reachable public IPv4 address (confirmed, no CGNAT).
-- **D-04 [D]** nginx runs in Docker on the same Pi. The app publishes no host port; nginx reaches it as `blg:1701` over a shared external Docker network (`proxy`).
-- **D-05 [D]** Certificates for the Dyno hostname are issued with HTTP-01 by the existing setup, so port 80 stays forwarded and the port-80 server block serves the ACME challenge.
+- **D-04 [D]** NPM already owns ports 80 and 443. The app listens on port 1701 and publishes it on the Pi; NPM forwards to the Pi's LAN address on 1701. The router does not forward 1701.
+- **D-05 [D]** The certificate is issued by NPM with HTTP-01, so port 80 stays forwarded.
 - **D-06 [D]** Storage is an SD card. SQLite uses WAL with `synchronous=NORMAL` and `wal_autocheckpoint` at the default; the image cache is capped (I-15). No backups: a lost database only loses running games.
-- **D-07 [D]** Hostname and contact email are placeholders (`pauli.mywire.org`, `you@example.com`) in the specs and `deploy/.env.example`. Real values are set only in the `.env` on the Pi.
+- **D-07 [D]** Contact email is a placeholder (`you@example.com`) in the specs and `deploy/.env.example`. Real values are set only in the `.env` on the Pi.
+- **D-08 [D]** The image is built on the Pi from the checked-out repo (`docker compose up -d --build`); there is no registry.
 
 ## Pi and OS
 
 - 64-bit Raspberry Pi OS (arm64), Docker Engine with the compose plugin. `/data` is on the SD card; append-only actions keep database writes small.
 - Images built for `linux/arm64`, either on the Pi or with `docker buildx build --platform linux/arm64` elsewhere, base `node:22-bookworm-slim` (prebuilt `better-sqlite3` binaries available, no compiler needed).
 
-## Compose service (sketch)
+## Compose service
 
-```yaml
-services:
-  blg:
-    image: blg:${TAG:-latest}
-    restart: unless-stopped
-    expose: ["1701"]
-    networks: [proxy]
-    environment:
-      PUBLIC_URL: https://pauli.mywire.org:1701
-      PORT: "1701"
-      DATA_DIR: /data
-      VAPID_PUBLIC_KEY: ...
-      VAPID_PRIVATE_KEY: ...
-      CONTACT_EMAIL: you@example.com        # VAPID subject and Scryfall User-Agent
-      TRUST_PROXY: "true"
-    volumes: ["blg-data:/data"]
-    read_only: true
-    tmpfs: ["/tmp"]
-    user: "1000:1000"
-    mem_limit: 256m
-    healthcheck: { test: ["CMD", "node", "healthcheck.js"], interval: 30s }
-    logging: { driver: json-file, options: { max-size: "10m", max-file: "3" } }
-volumes: { blg-data: {} }
-networks: { proxy: { external: true } }   # the network your nginx container is attached to
-```
+See `deploy/docker-compose.yml`: image `blg:${TAG}` built from the repo, `ports: ["1701:1701"]`, `PORT=1701`, volume `blg-data` at `/data`, read-only root, `/tmp` tmpfs, user 1000, 256 MB memory limit, healthcheck on `/healthz`, rotated JSON logs.
 
-## nginx (sketch)
+## NPM (web UI)
 
-```nginx
-limit_req_zone $binary_remote_addr zone=blg_api:10m rate=10r/s;
-map $http_upgrade $connection_upgrade { default upgrade; '' close; }
-
-server {
-  listen 1701 ssl http2;
-  server_name pauli.mywire.org;
-  # ssl_certificate lines: managed by your existing certificate handling
-  client_max_body_size 16k;
-
-  location /ws {
-    proxy_pass http://blg:1701;
-    proxy_http_version 1.1;
-    proxy_set_header Upgrade $http_upgrade;
-    proxy_set_header Connection $connection_upgrade;
-    proxy_set_header Host $host;
-    proxy_set_header X-Forwarded-For $remote_addr;
-    proxy_set_header X-Forwarded-Proto $scheme;
-    proxy_read_timeout 3600s;
-  }
-  location /api/ {
-    limit_req zone=blg_api burst=20 nodelay;
-    proxy_pass http://blg:1701;
-    proxy_set_header Host $host;
-    proxy_set_header X-Forwarded-For $remote_addr;
-    proxy_set_header X-Forwarded-Proto $scheme;
-  }
-  location / {
-    proxy_pass http://blg:1701;
-    proxy_set_header Host $host;
-    proxy_set_header X-Forwarded-For $remote_addr;
-    proxy_set_header X-Forwarded-Proto $scheme;
-  }
-}
-server { listen 80; server_name pauli.mywire.org; return 301 https://$host:1701$request_uri; }
-```
-
-(HTTP-01: keep your existing `/.well-known/acme-challenge/` location in the port-80 block, before the redirect.)
+Proxy host `basic-land-game.giize.com` -> `http://<pi LAN address>:1701`, Websockets Support on, Force SSL and HTTP/2 on, Let's Encrypt certificate. `PUBLIC_URL=https://basic-land-game.giize.com` in `.env` (must equal the browser's origin).
 
 ## Network
 
-- Forward TCP 1701 (the game; 80 and 443 are already in use) and 80 (HTTP-01 renewals) from the router to the Pi, give the Pi a fixed LAN address, enable a firewall on the Pi that allows only 22 (from the LAN), 80 and 1701.
-- Keep the Dyno record current with the Dyno updater (cron or container) if the public IP changes.
+- Forward TCP 443 and 80 (HTTP-01 renewals) from the router to the Pi (not 1701), give the Pi a fixed LAN address, enable a firewall on the Pi that allows only 22 (from the LAN), 80 and 443.
+- Keep the Dynu record current with the Dynu updater (cron or container) if the public IP changes.
 
 ## Operations
 
 - **O-01** Configuration only through environment variables, listed in `deploy/.env.example`. VAPID keys are generated once (`npx web-push generate-vapid-keys`) and kept; changing them invalidates all push subscriptions.
-- **O-02** Update: `docker compose pull && docker compose up -d`, or rebuild with a new `TAG`. Rollback: start the previous tag; the schema is migrated forward only, so after an upgrade that migrated the schema, rolling back means deleting the data volume (acceptable: only running games are lost).
+- **O-02** Update: `git pull`, then `docker compose up -d --build` (optionally with a new `TAG`). Rollback: start the previous tag; the schema is migrated forward only, so after an upgrade that migrated the schema, rolling back means deleting the data volume (acceptable: only running games are lost).
 - **O-03** No backups (D-06). The image cache is rebuilt on demand.
 - **O-04** Logs go to stdout as JSON (pino) and rotate through Docker. No IP addresses are stored in the database; nginx access logs follow your existing retention.
 - **O-05** `GET /healthz` returns 200 with the version and rules version. A restart mid-game is safe: games are rebuilt by replay and timers re-created (A-03, P-08).

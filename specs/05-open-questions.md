@@ -39,4 +39,4 @@ All questions are resolved (see below).
 - Web client done (`web/`): 19 unit and component tests, 2 Playwright end-to-end tests (two browsers, phone viewport, tab death and rejoin, rejoin link, concede, rematch, no Scryfall traffic with default art).
 - Chromium's emulated offline mode does not close open WebSockets, so the end-to-end test simulates a dead tab by closing the page; reconnect with backoff is covered by `web/test/lib.test.ts`.
 - Not done: axe accessibility scan (W-94), German strings, a real push test on a phone (needs HTTPS and VAPID keys on the Pi), the service worker's offline start is built and precaches the default art but is not exercised by a browser test.
-- `deploy/` has the Dockerfile (repo root), compose file, nginx example and `.env.example`; the image was built and run locally read-only as UID 1000 (arm64).
+- `deploy/` has the Dockerfile (repo root), compose file and `.env.example`; the image was built and run locally read-only as UID 1000 (arm64).

@@ -11,7 +11,7 @@ Players join through an invite link, no accounts needed. The server runs the rul
 - Sound, vibration and Web Push notifications when it is your turn or you can counter
 - Per-player custom land art through a Scryfall gallery, with bundled default art that works offline
 - Configurable game options: deck size, empty-library rule, turn limit, first player
-- Self-hosted on a Raspberry Pi with Docker and nginx
+- Self-hosted on a Raspberry Pi with Docker and Nginx Proxy Manager
 
 ## Quick start
 
@@ -72,7 +72,7 @@ Key design decisions:
 
 - **The server is authoritative.** Clients send actions, the server validates them with the engine and broadcasts per-seat views. The seed, libraries and the opponent's hand never leave the server.
 - **State is the config plus the list of applied actions.** The engine is deterministic, so the server rebuilds a game by replay after a restart. Each game stores a `RULES_VERSION`, so games from incompatible rule versions are abandoned instead of replayed wrongly.
-- **One container, one process.** Fastify serves the web app, API, WebSocket and image proxy. nginx only terminates TLS.
+- **One container, one process.** Fastify serves the web app, API, WebSocket and image proxy. Nginx Proxy Manager only terminates TLS.
 
 Full details are in [`specs/web/11-architecture.md`](specs/web/11-architecture.md) (web and server) and [`specs/04-architecture.md`](specs/04-architecture.md) (engine).
 
@@ -83,7 +83,7 @@ engine/    rules engine (src/, test/)
 server/    Fastify server (src/, test/); SQLite data lives in server/data (git-ignored)
 web/       React PWA (src/, test/, e2e/, public/ with bundled art, fonts and icons)
 specs/     rules, API and product specs, Gherkin scenarios
-deploy/    docker-compose.yml, nginx example, healthcheck, .env.example
+deploy/    docker-compose.yml, healthcheck, .env.example
 scripts/   fetch-default-art.mjs, make-icons.mjs (developer tools)
 Dockerfile multi-stage image for linux/arm64 and amd64
 DEPLOY.md  step-by-step Raspberry Pi guide
@@ -129,13 +129,12 @@ Developer tools:
 | [`DEPLOY.md`](DEPLOY.md) | Step-by-step deployment, operations and troubleshooting |
 | [`deploy/.env.example`](deploy/.env.example) | Server configuration variables |
 | [`deploy/docker-compose.yml`](deploy/docker-compose.yml) | Compose service definition |
-| [`deploy/nginx.example.conf`](deploy/nginx.example.conf) | nginx reverse-proxy example |
 
 Gherkin scenarios: [engine](specs/features) (`setup-and-turns`, `land-effects`, `counter-and-winning`) and web (`web-art`, `web-notifications`, `web-sessions`), all in the same folder.
 
 ## Deployment
 
-The app ships as a single Docker image. To self-host it, follow [`DEPLOY.md`](DEPLOY.md). It covers preparing the Pi, a Dyno hostname (`pauli.mywire.org`, port 1701), building the image, VAPID keys for push notifications, nginx with Let's Encrypt, and verification. Copy [`deploy/.env.example`](deploy/.env.example) to `deploy/.env` and fill it in. The real `.env` is git-ignored and must never be committed.
+The app ships as a single Docker image. To self-host it, follow [`DEPLOY.md`](DEPLOY.md). It covers preparing the Pi, the Dynu hostname (`basic-land-game.giize.com`), building the image on the Pi, VAPID keys for push notifications, the Nginx Proxy Manager host with Let's Encrypt, and verification. Copy [`deploy/.env.example`](deploy/.env.example) to `deploy/.env` and fill it in. The real `.env` is git-ignored and must never be committed.
 
 ## Credits
 
