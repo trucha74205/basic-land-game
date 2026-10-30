@@ -3,7 +3,7 @@ import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import type { Action, Card, PlayerView } from "basic-land-engine";
 import { GameCtx } from "../src/components/GameContext";
-import { Table } from "../src/components/Table";
+import { Table, fitHand } from "../src/components/Table";
 import { emptyGame, useGame } from "../src/lib/store";
 
 const c = (id: string, type: Card["type"]): Card => ({ id, type });
@@ -116,5 +116,42 @@ describe("table (W-31 to W-36)", () => {
     expect(screen.getByRole("button", { name: "Plains, on battlefield" })).toBeInTheDocument();
     act(() => useGame.setState({ conn: "reconnecting" }));
     expect(screen.getByRole("status")).toHaveTextContent("Connection lost");
+  });
+
+  it("a battlefield pile shows at most 3 cards and the count; a target hidden by that limit is still reachable", () => {
+    const mountains = [1, 2, 3, 4, 5].map((n) => c(`p1-Mountain-${n}`, "Mountain"));
+    show(
+      view({ battlefields: [[], mountains] }),
+      [{ type: "PlayLand", card: "p0-Mountain-1", target: "p1-Mountain-5" }, { type: "EndTurn" }, ...UI_ONLY],
+    );
+    expect(screen.getByText("x5")).toBeInTheDocument();
+    const shown = screen.getAllByRole("button", { name: /Mountain, on battlefield/ });
+    expect(shown).toHaveLength(3);
+    fireEvent.click(screen.getByRole("button", { name: /Mountain, in hand/ }));
+    expect(screen.getByRole("status")).toHaveTextContent("Play Mountain?"); // the one legal target is preselected, even though it is the fifth card
+  });
+});
+
+describe("selection", () => {
+  it("is named Cancel and a click outside any card or button drops it", () => {
+    show(view(), [{ type: "PlayLand", card: "p0-Swamp-2" }, { type: "EndTurn" }, ...UI_ONLY]);
+    fireEvent.click(screen.getByRole("button", { name: /Swamp, in hand/ }));
+    expect(screen.getByRole("button", { name: "Cancel" })).toBeInTheDocument();
+    fireEvent.click(document.body);
+    expect(screen.queryByRole("button", { name: "Cancel" })).toBeNull();
+    expect(screen.getByRole("status")).toHaveTextContent("Your turn");
+  });
+});
+
+describe("hand fit", () => {
+  const hand = [5, 4, 3, 2, 1]; // cards per land type
+  it("shrinks piles one card at a time before it shrinks the cards", () => {
+    const at = (w: number) => fitHand(hand, w);
+    expect(at(1000)).toEqual({ stack: 3, scale: 1 }); // 768 needed
+    expect(at(740)).toEqual({ stack: 2, scale: 1 }); // 720 needed
+    expect(at(700)).toEqual({ stack: 1, scale: 1 }); // 656 needed
+    expect(at(300).stack).toBe(1);
+    expect(at(300).scale).toBeLessThan(1);
+    expect(at(300).scale).toBeGreaterThan(0.3);
   });
 });

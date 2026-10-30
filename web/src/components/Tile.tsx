@@ -32,6 +32,8 @@ export interface TileProps {
   size?: "sm" | "md";
   /** Highlighted as a legal choice. */
   hot?: boolean;
+  /** Highlighted without the bounce, when a parent bounces the whole group. */
+  still?: boolean;
   selected?: boolean;
   /** Greyed out while the player has to choose something else. */
   dim?: boolean;
@@ -45,7 +47,7 @@ export interface TileProps {
 }
 
 /** A land card in MTG proportions: name bar, art window, type line and text box in a land-coloured frame. Tap acts, long-press or the Z key zooms (W-30). */
-export function Tile({ land, art, where, size = "md", hot, selected, dim, disabled, mark, cardId, onPress, onZoom }: TileProps) {
+export function Tile({ land, art, where, size = "md", hot, still, selected, dim, disabled, mark, cardId, onPress, onZoom }: TileProps) {
   const [failed, setFailed] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const longPressed = useRef(false);
@@ -67,7 +69,7 @@ export function Tile({ land, art, where, size = "md", hot, selected, dim, disabl
     <div
       data-ref={cardId}
       style={{ width: w, height: tileHeight(size) }}
-      className={cn("relative shrink-0 drop-shadow-md transition-transform", selected && "-translate-y-2", hot && !selected && "tile-hot", dim && "opacity-40 grayscale")}
+      className={cn("relative shrink-0 drop-shadow-md transition-transform", selected && "-translate-y-2", hot && !selected && !still && "tile-hot", dim && "opacity-40 grayscale")}
     >
       <button
         type="button"
