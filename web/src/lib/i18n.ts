@@ -75,6 +75,7 @@ const en = {
   "menu.notificationsUnsupported": "This browser does not support notifications",
   "menu.sound": "Sound",
   "menu.dark": "Dark mode",
+  "menu.pixel": "Pixel style",
   "menu.vibration": "Vibration",
   "menu.about": "About",
   "menu.home": "Home",

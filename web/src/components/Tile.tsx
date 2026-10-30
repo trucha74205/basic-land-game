@@ -91,14 +91,14 @@ export function Tile({ land, art, where, size = "md", hot, selected, dim, disabl
       >
         <span className={cn("px-card flex h-full w-full flex-col gap-[3px] bg-linear-to-br from-white/25 to-black/25 p-[3px]", FRAME[land])}>
           <span className="flex h-[18px] shrink-0 items-center rounded-[3px] bg-[var(--parchment)] px-1 text-black" aria-hidden="true">
-            <span className="brand truncate text-[12px] font-bold leading-none">
+            <span className="truncate font-sans text-[13px] font-bold leading-none">
               {land}
               {usesCustomArt(land, art) ? "*" : ""}
             </span>
           </span>
           <img src={src} alt="" loading="lazy" draggable={false} onError={() => setFailed(true)} className={cn("w-full shrink-0 rounded-[2px] border border-black/50 object-cover", size === "sm" ? "aspect-[3/2]" : "aspect-[7/5]")} />
           <span className="flex min-h-0 flex-1 flex-col items-center rounded-[3px] text-black" style={{ background: `linear-gradient(to bottom, color-mix(in oklab, var(--land-${land.toLowerCase()}) 15%, white), color-mix(in oklab, var(--land-${land.toLowerCase()}) 85%, white))` }} aria-hidden="true">
-            <span className={cn("flex w-full shrink-0 items-center px-1 text-[9px] leading-none", size === "sm" ? "h-[13px]" : "h-4")}>
+            <span className={cn("flex w-full shrink-0 items-center px-1 font-sans text-[10px] leading-none", size === "sm" ? "h-[13px]" : "h-4")}>
               <span className="truncate">{size === "sm" ? t("tile.type") : `${t("tile.type")} - ${land}`}</span>
             </span>
             <span className="flex min-h-0 flex-1 items-center justify-center">
@@ -110,7 +110,7 @@ export function Tile({ land, art, where, size = "md", hot, selected, dim, disabl
       {selected && (
         <>
           <span aria-hidden="true" className="pointer-events-none absolute -inset-1.5 rounded-lg border-[3px] border-[var(--highlight)] shadow-[0_0_18px_4px_var(--highlight)]" />
-          <span aria-hidden="true" className="pointer-events-none absolute -top-6 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-[var(--highlight)] px-2 text-[11px] font-bold leading-5 text-black shadow">
+          <span aria-hidden="true" className="pointer-events-none absolute -top-6 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-[var(--highlight)] px-2 text-[12px] font-bold leading-5 text-black shadow">
             {t("tile.selectedBadge")}
           </span>
         </>
@@ -118,7 +118,7 @@ export function Tile({ land, art, where, size = "md", hot, selected, dim, disabl
       {mark && (
         <>
           <span aria-hidden="true" className={cn("pointer-events-none absolute -inset-1 rounded-md border-2", MARK[mark.tone])} style={{ background: "transparent" }} />
-          <span aria-hidden="true" className={cn("pointer-events-none absolute -top-3 left-1/2 z-20 -translate-x-1/2 whitespace-nowrap rounded-full border px-1.5 text-[10px] font-bold leading-4 text-white shadow", MARK[mark.tone])}>
+          <span aria-hidden="true" className={cn("pointer-events-none absolute -top-3 left-1/2 z-20 -translate-x-1/2 whitespace-nowrap rounded-full border px-1.5 text-[11px] font-bold leading-4 text-white shadow", MARK[mark.tone])}>
             {mark.text}
           </span>
         </>

@@ -13,6 +13,7 @@ import { ArtPicker } from "./ArtPicker";
 import { useGameApi } from "./GameContext";
 import { CTA } from "@/lib/ui";
 import { openHelp } from "@/lib/shortcuts";
+import { setLook, useLook } from "@/lib/theme";
 
 type Panel = "menu" | "art";
 
@@ -28,6 +29,7 @@ export function Menu({ onSettings }: { onSettings: (s: Settings) => void }) {
   const api = useGameApi();
   const nav = useNavigate();
   const { resolved, setMode } = useDarkMode();
+  const look = useLook();
 
   useEffect(() => {
     if (open) void pushState().then(setPush);
@@ -98,6 +100,7 @@ export function Menu({ onSettings }: { onSettings: (s: Settings) => void }) {
                       ))}
                     </div>
                   </div>
+                  <PixelSwitch label={t("menu.pixel")} checked={look === "pixel"} onChange={(v) => setLook(v ? "pixel" : "clean")} />
                   <PixelSwitch label={t("menu.dark")} checked={resolved === "dark"} onChange={(v) => setMode(v ? "dark" : "light")} />
                 </div>
                 {!over && status === "active" && (

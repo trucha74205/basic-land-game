@@ -46,12 +46,43 @@
   html { font-size: 16px; }
   body { @apply bg-background text-foreground font-sans antialiased; min-height: 100dvh; }
   button, [role="button"], a, input, select { min-height: 44px; }
+  /* form controls do not inherit the page font by default */
+  button, input, select, textarea { font-family: inherit; }
   :focus-visible { outline: 3px solid var(--ring); outline-offset: 2px; }
 }
 
-/* headings: modern sans; the brand name and card titles keep the pixel face */
+/* Two looks, chosen by the player (see lib/theme.ts): html[data-look="pixel"] is the retro style, "clean" has no pixel effects at all. */
 .pixel { @apply font-semibold tracking-tight; }
 .brand { font-family: var(--font-brand); }
+html[data-look="clean"] { --font-brand: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+html[data-look="clean"] .brand { font-weight: 700; }
+
+html[data-look="pixel"] {
+  /* only the brand and headings are pixel type; text stays in the system sans */
+  --font-brand: "Pixelify Sans", ui-monospace, monospace;
+  /* square corners and hard, offset shadows */
+  --radius-xs: 0; --radius-sm: 0; --radius-md: 0; --radius-lg: 0; --radius-xl: 0; --radius-2xl: 0; --radius-3xl: 0; --radius-4xl: 0;
+  --shadow-xs: 2px 2px 0 rgb(0 0 0 / 0.5); --shadow-sm: 2px 2px 0 rgb(0 0 0 / 0.5); --shadow-md: 4px 4px 0 rgb(0 0 0 / 0.5);
+  --shadow-lg: 4px 4px 0 rgb(0 0 0 / 0.55); --shadow-xl: 6px 6px 0 rgb(0 0 0 / 0.55);
+  --drop-shadow-md: 3px 3px 0 rgb(0 0 0 / 0.55);
+}
+html[data-look="pixel"] [class*="rounded"] { border-radius: 0; }
+html[data-look="pixel"] .pixel { font-family: var(--font-brand); font-weight: 700; letter-spacing: 0.02em; }
+html[data-look="pixel"] .playmat,
+html[data-look="pixel"] section,
+html[data-look="pixel"] aside { border-width: 3px; }
+/* the tiled backgrounds replace the soft glow */
+html[data-look="pixel"] .page-glow {
+  background:
+    linear-gradient(45deg, color-mix(in oklab, var(--retro-primary) 10%, transparent) 25%, transparent 25% 75%, color-mix(in oklab, var(--retro-primary) 10%, transparent) 75%) 0 0 / 8px 8px,
+    var(--retro-bg);
+}
+html[data-look="pixel"] .playmat { background: var(--retro-surface); }
+html[data-look="pixel"] :focus-visible { outline-style: dashed; }
+
+html[data-look="clean"] img { image-rendering: auto !important; }
+html[data-look="clean"] .px-card { clip-path: none; border-radius: 10px; }
+html[data-look="clean"] .page-glow, html[data-look="clean"] .playmat { background-blend-mode: normal; }
 
 /* page background: soft glow so screens do not sit on flat colour */
 .page-glow {
@@ -78,6 +109,8 @@ button[aria-label="no-close"] { display: none; }
 
 @keyframes pulse-steps { 50% { transform: translateY(-3px); } }
 .tile-hot { animation: pulse-steps 1.2s ease-in-out infinite; }
+html[data-look="pixel"] .tile-hot { animation-timing-function: steps(2, end); }
+html[data-look="pixel"] * { scroll-behavior: auto; }
 
 /* card outline with stepped (pixelated) corners, about the 1:18 corner radius of a real card */
 .px-card {
@@ -88,4 +121,6 @@ button[aria-label="no-close"] { display: none; }
 @keyframes rel-pulse { 50% { opacity: 0.25; } }
 @keyframes rel-in { from { opacity: 0; } }
 .rel-in { animation: rel-in 0.4s steps(4); }
+html[data-look="clean"] .rel-in { animation-timing-function: ease-out; }
+html[data-look="clean"] .rel-ring { animation-timing-function: ease-in-out; }
 .rel-ring { animation: rel-pulse 0.8s steps(1, end) infinite; }

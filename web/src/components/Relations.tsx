@@ -1,3 +1,4 @@
+import { useLook } from "@/lib/theme";
 import { useEffect, useState } from "react";
 import type { StackItem } from "basic-land-engine";
 import { useGame } from "@/lib/store";
@@ -130,10 +131,12 @@ function Lines({ lines, animate, ring }: { lines: Line[]; animate: boolean; ring
     const id = setInterval(() => setPhase((p) => (p + 1) % 16), 70);
     return () => clearInterval(id);
   }, [animate]);
+  const look = useLook();
   if (geo.length === 0) return null;
+  const pixel = look === "pixel";
 
   return (
-    <svg aria-hidden="true" shapeRendering="crispEdges" className="pointer-events-none fixed inset-0 z-30 h-full w-full overflow-visible">
+    <svg aria-hidden="true" shapeRendering={pixel ? "crispEdges" : "auto"} className="pointer-events-none fixed inset-0 z-30 h-full w-full overflow-visible">
       {geo.map(({ line, a, b }, i) => {
         const [p1, p2] = connect(a, b);
         const len = Math.hypot(p2.x - p1.x, p2.y - p1.y) || 1;
@@ -144,6 +147,28 @@ function Lines({ lines, animate, ring }: { lines: Line[]; animate: boolean; ring
         const col = COLOR[line.kind];
         const mid = cell({ x: 0.25 * p1.x + 0.5 * c.x + 0.25 * p2.x, y: 0.25 * p1.y + 0.5 * c.y + 0.25 * p2.y });
         const w = line.label.length * 8 + 10;
+        if (!pixel) {
+          const end = body[body.length - 1] ?? p2;
+          const dx = p2.x - prev.x;
+          const dy = p2.y - prev.y;
+          const l = Math.hypot(dx, dy) || 1;
+          const d = { x: dx / l, y: dy / l };
+          const base = { x: end.x - d.x * 14, y: end.y - d.y * 14 };
+          const pts = `${end.x},${end.y} ${base.x - d.y * 7},${base.y + d.x * 7} ${base.x + d.y * 7},${base.y - d.x * 7}`;
+          const path = `M${p1.x},${p1.y} Q${c.x},${c.y} ${base.x},${base.y}`;
+          return (
+            <g key={i} className="rel-in">
+              {ring && <rect x={b.x - 5} y={b.y - 5} width={b.w + 10} height={b.h + 10} rx={8} fill="none" stroke={col} strokeWidth={2} strokeDasharray="6 4" className="rel-ring" />}
+              <path d={path} fill="none" stroke="#000" strokeOpacity={0.5} strokeWidth={6} strokeLinecap="round" />
+              <path d={path} fill="none" stroke={col} strokeWidth={3} strokeLinecap="round" strokeDasharray={animate ? "10 6" : undefined} strokeDashoffset={animate ? -phase * 2 : undefined} />
+              <polygon points={pts} fill={col} stroke="#000" strokeOpacity={0.5} strokeWidth={1.5} strokeLinejoin="round" />
+              <rect x={mid.x - w / 2} y={mid.y - 20} width={w} height={18} rx={9} fill="#000" fillOpacity={0.8} stroke={col} strokeWidth={1.5} />
+              <text x={mid.x} y={mid.y - 7} textAnchor="middle" fontSize={13} fill="#fff" style={{ fontFamily: "var(--font-sans)" }}>
+                {line.label}
+              </text>
+            </g>
+          );
+        }
         return (
           <g key={i} className="rel-in">
             {ring && <rect x={b.x - 5} y={b.y - 5} width={b.w + 10} height={b.h + 10} fill="none" stroke={col} strokeWidth={PX} strokeDasharray={`${PX * 3} ${PX * 2}`} className="rel-ring" />}
@@ -151,7 +176,7 @@ function Lines({ lines, animate, ring }: { lines: Line[]; animate: boolean; ring
             {body.map((k, n) => <rect key={n} x={k.x} y={k.y} width={PX} height={PX} fill={col} opacity={animate && (n + phase) % 16 < 5 ? 0.5 : 1} />)}
             {head.map((k, n) => <rect key={`h${n}`} x={k.x} y={k.y} width={PX} height={PX} fill={col} />)}
             <rect x={mid.x - w / 2} y={mid.y - 20} width={w} height={18} fill="#000" stroke={col} strokeWidth={2} />
-            <text x={mid.x} y={mid.y - 7} textAnchor="middle" fontSize={13} fill="#fff" style={{ fontFamily: "var(--font-brand)" }} shapeRendering="auto">
+            <text x={mid.x} y={mid.y - 7} textAnchor="middle" fontSize={13} fill="#fff" style={{ fontFamily: "var(--font-sans)" }} shapeRendering="auto">
               {line.label}
             </text>
           </g>
