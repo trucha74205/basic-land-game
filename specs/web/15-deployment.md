@@ -3,20 +3,20 @@
 ## Topology
 
 ```
-Internet -> router (443, 80 forwarded) -> Pi: nginx container (TLS, rate limits)
-                                              -> blg:3000 over a shared Docker network (Fastify: web app, API, WebSocket, images)
+Internet -> router (1701, 80 forwarded) -> Pi: nginx container (TLS, rate limits)
+                                              -> blg:1701 over a shared Docker network (Fastify: web app, API, WebSocket, images)
                                                     volume /data (SQLite, image cache)
 ```
 
 ## Decisions
 
-- **D-01 [D]** Public access through router port forwarding, a DuckDNS hostname and Let's Encrypt certificates, handled by the existing nginx. Docker Compose runs the app container.
+- **D-01 [D]** Public access through router port forwarding, a Dyno hostname and Let's Encrypt certificates, handled by the existing nginx. Docker Compose runs the app container.
 - **D-02 [D]** One container serves the built web app, REST, WebSocket and the image proxy. nginx only terminates TLS and proxies.
 - **D-03 [D]** The ISP provides a reachable public IPv4 address (confirmed, no CGNAT).
-- **D-04 [D]** nginx runs in Docker on the same Pi. The app publishes no host port; nginx reaches it as `blg:3000` over a shared external Docker network (`proxy`).
-- **D-05 [D]** Certificates for the DuckDNS hostname are issued with HTTP-01 by the existing setup, so port 80 stays forwarded and the port-80 server block serves the ACME challenge.
+- **D-04 [D]** nginx runs in Docker on the same Pi. The app publishes no host port; nginx reaches it as `blg:1701` over a shared external Docker network (`proxy`).
+- **D-05 [D]** Certificates for the Dyno hostname are issued with HTTP-01 by the existing setup, so port 80 stays forwarded and the port-80 server block serves the ACME challenge.
 - **D-06 [D]** Storage is an SD card. SQLite uses WAL with `synchronous=NORMAL` and `wal_autocheckpoint` at the default; the image cache is capped (I-15). No backups: a lost database only loses running games.
-- **D-07 [D]** Hostname and contact email are placeholders (`<name>.duckdns.org`, `you@example.com`) in the specs and `deploy/.env.example`. Real values are set only in the `.env` on the Pi.
+- **D-07 [D]** Hostname and contact email are placeholders (`pauli.mywire.org`, `you@example.com`) in the specs and `deploy/.env.example`. Real values are set only in the `.env` on the Pi.
 
 ## Pi and OS
 
@@ -30,10 +30,11 @@ services:
   blg:
     image: blg:${TAG:-latest}
     restart: unless-stopped
-    expose: ["3000"]
+    expose: ["1701"]
     networks: [proxy]
     environment:
-      PUBLIC_URL: https://<name>.duckdns.org
+      PUBLIC_URL: https://pauli.mywire.org:1701
+      PORT: "1701"
       DATA_DIR: /data
       VAPID_PUBLIC_KEY: ...
       VAPID_PRIVATE_KEY: ...
@@ -57,13 +58,13 @@ limit_req_zone $binary_remote_addr zone=blg_api:10m rate=10r/s;
 map $http_upgrade $connection_upgrade { default upgrade; '' close; }
 
 server {
-  listen 443 ssl http2;
-  server_name <name>.duckdns.org;
+  listen 1701 ssl http2;
+  server_name pauli.mywire.org;
   # ssl_certificate lines: managed by your existing certificate handling
   client_max_body_size 16k;
 
   location /ws {
-    proxy_pass http://blg:3000;
+    proxy_pass http://blg:1701;
     proxy_http_version 1.1;
     proxy_set_header Upgrade $http_upgrade;
     proxy_set_header Connection $connection_upgrade;
@@ -74,27 +75,27 @@ server {
   }
   location /api/ {
     limit_req zone=blg_api burst=20 nodelay;
-    proxy_pass http://blg:3000;
+    proxy_pass http://blg:1701;
     proxy_set_header Host $host;
     proxy_set_header X-Forwarded-For $remote_addr;
     proxy_set_header X-Forwarded-Proto $scheme;
   }
   location / {
-    proxy_pass http://blg:3000;
+    proxy_pass http://blg:1701;
     proxy_set_header Host $host;
     proxy_set_header X-Forwarded-For $remote_addr;
     proxy_set_header X-Forwarded-Proto $scheme;
   }
 }
-server { listen 80; server_name <name>.duckdns.org; return 301 https://$host$request_uri; }
+server { listen 80; server_name pauli.mywire.org; return 301 https://$host:1701$request_uri; }
 ```
 
 (HTTP-01: keep your existing `/.well-known/acme-challenge/` location in the port-80 block, before the redirect.)
 
 ## Network
 
-- Forward TCP 443 and 80 (HTTP-01 renewals) from the router to the Pi, give the Pi a fixed LAN address, enable a firewall on the Pi that allows only 22 (from the LAN), 80 and 443.
-- Keep the DuckDNS record current with the DuckDNS updater (cron or container) if the public IP changes.
+- Forward TCP 1701 (the game; 80 and 443 are already in use) and 80 (HTTP-01 renewals) from the router to the Pi, give the Pi a fixed LAN address, enable a firewall on the Pi that allows only 22 (from the LAN), 80 and 1701.
+- Keep the Dyno record current with the Dyno updater (cron or container) if the public IP changes.
 
 ## Operations
 

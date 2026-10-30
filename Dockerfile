@@ -19,7 +19,7 @@ COPY --from=build /app/server/dist/main.js ./main.js
 COPY --from=build /app/web/dist ./public
 COPY deploy/healthcheck.js ./healthcheck.js
 RUN mkdir /data && chown 1000:1000 /data
-ENV NODE_ENV=production STATIC_DIR=/app/public DATA_DIR=/data PORT=3000
+ENV NODE_ENV=production STATIC_DIR=/app/public DATA_DIR=/data PORT=1701
 USER node
-EXPOSE 3000
+EXPOSE 1701
 CMD ["node", "main.js"]

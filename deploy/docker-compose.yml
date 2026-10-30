@@ -5,11 +5,12 @@ services:
       context: ..
       dockerfile: Dockerfile
     restart: unless-stopped
-    expose: ["3000"]
+    expose: ["1701"]
     networks: [proxy]
     env_file: .env
     environment:
       DATA_DIR: /data
+      PORT: "1701"
     volumes: ["blg-data:/data"]
     read_only: true
     tmpfs: ["/tmp"]

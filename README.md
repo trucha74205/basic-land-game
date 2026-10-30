@@ -135,7 +135,7 @@ Gherkin scenarios: [engine](specs/features) (`setup-and-turns`, `land-effects`, 
 
 ## Deployment
 
-The app ships as a single Docker image. To self-host it, follow [`DEPLOY.md`](DEPLOY.md). It covers preparing the Pi, a DuckDNS hostname, building the image, VAPID keys for push notifications, nginx with Let's Encrypt, and verification. Copy [`deploy/.env.example`](deploy/.env.example) to `deploy/.env` and fill it in. The real `.env` is git-ignored and must never be committed.
+The app ships as a single Docker image. To self-host it, follow [`DEPLOY.md`](DEPLOY.md). It covers preparing the Pi, a Dyno hostname (`pauli.mywire.org`, port 1701), building the image, VAPID keys for push notifications, nginx with Let's Encrypt, and verification. Copy [`deploy/.env.example`](deploy/.env.example) to `deploy/.env` and fill it in. The real `.env` is git-ignored and must never be committed.
 
 ## Credits
 
