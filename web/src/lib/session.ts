@@ -61,7 +61,7 @@ export const saveNickname = (n: string): void => write(NICK, n);
 export const getArt = (): ArtChoice => read(ART, {});
 export const saveArt = (a: ArtChoice): void => write(ART, a);
 
-export const getSettings = (): Settings => ({ sound: true, vibration: true, anim: "normal", log: true, ...read<Partial<Settings>>(SETTINGS, {}) });
+export const getSettings = (): Settings => ({ sound: true, vibration: true, anim: "fast", log: true, ...read<Partial<Settings>>(SETTINGS, {}) });
 export const saveSettings = (s: Settings): void => {
   write(SETTINGS, s);
   window.dispatchEvent(new Event("blg:settings"));
