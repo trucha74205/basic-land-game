@@ -176,7 +176,7 @@ export function GameLog() {
 
   if (!open)
     return (
-      <div className="fixed bottom-4 right-4 z-20 max-lg:hidden">
+      <div className="fixed right-[max(1rem,calc((100vw-1340px)/2+1rem))] top-16 z-20 max-lg:hidden">
         <PixelButton tone="neutral" variant="outline" size="sm" onClick={toggleLog}>{t("log.show")}</PixelButton>
       </div>
     );
